@@ -1,18 +1,24 @@
-import re
-import serial
+# ponytail: inlined port selector, literal baud rate — single-use script
+import re, serial, serial.tools.list_ports
 
-# ESP-IDF default baud rate is 115200
-ser = serial.Serial('/dev/cu.usbserial-0001', 115200, timeout=1)
-# ser = serial.Serial('/dev/cu.SLAB_USBtoUART', 115200, timeout=1)
+ports = list(serial.tools.list_ports.comports())
+if not ports:
+    raise SystemExit("No serial ports found.")
+for i, p in enumerate(ports):
+    print(f"  [{i}] {p.device} — {p.description}")
+while True:
+    try:
+        idx = int(input(f"\nSelect port [0-{len(ports)-1}]: "))
+        if 0 <= idx < len(ports): break
+    except (ValueError, EOFError): pass
+print()
 
-ANSI_ESCAPE = re.compile(r'\x1b\[[0-9;]*m')
-
+ser = serial.Serial(ports[idx].device, 115200, timeout=1)
+ANSI = re.compile(r'\x1b\[[0-9;]*m')
 try:
     while True:
-        if ser.in_waiting > 0:
-            line = ser.readline().decode('utf-8', errors='replace').strip()
-            line = ANSI_ESCAPE.sub('', line)
-            print(line)
+        if ser.in_waiting:
+            print(ANSI.sub('', ser.readline().decode('utf-8', errors='replace').strip()))
 except KeyboardInterrupt:
     print("\nStopped.")
 finally:
